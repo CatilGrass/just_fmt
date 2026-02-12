@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 pub struct PathFormatConfig {
     /// Whether to strip ANSI escape sequences (e.g., `\x1b[31m`, `\x1b[0m`).
     /// When the path string may contain terminal color codes, enabling this option will clean them up.
+    #[cfg(feature = "strip-ansi")]
     pub strip_ansi: bool,
 
     /// Whether to strip characters disallowed in Windows filenames (`*`, `?`, `"`, `<`, `>`, `|`).
@@ -27,6 +28,7 @@ pub struct PathFormatConfig {
 impl Default for PathFormatConfig {
     fn default() -> Self {
         Self {
+            #[cfg(feature = "strip-ansi")]
             strip_ansi: true,
             strip_unfriendly_chars: true,
             resolve_parent_dirs: true,
@@ -72,7 +74,7 @@ impl Default for PathFormatConfig {
 /// # Ok(())
 /// # }
 /// ```
-pub fn fmt_path_str(path: impl Into<String>) -> Result<String, FormatPathError> {
+pub fn fmt_path_str(path: impl Into<String>) -> Result<String, PathFormatError> {
     fmt_path_str_custom(path, &PathFormatConfig::default())
 }
 
@@ -88,27 +90,28 @@ pub fn fmt_path_str(path: impl Into<String>) -> Result<String, FormatPathError> 
 pub fn fmt_path_str_custom(
     path: impl Into<String>,
     config: &PathFormatConfig,
-) -> Result<String, FormatPathError> {
-    let path_str = path.into();
-    let ends_with_slash = path_str.ends_with('/');
+) -> Result<String, PathFormatError> {
+    let path_result = path.into();
+    let ends_with_slash = path_result.ends_with('/');
 
     // ANSI Strip
-    let cleaned = if config.strip_ansi {
-        strip_ansi_escapes::strip(&path_str)
+    #[cfg(feature = "strip-ansi")]
+    let path_result = if config.strip_ansi {
+        let cleaned = strip_ansi_escapes::strip(&path_result);
+        String::from_utf8(cleaned).map_err(PathFormatError::InvalidUtf8)?
     } else {
-        path_str.as_bytes().to_vec()
+        path_result
     };
-    let path_without_ansi = String::from_utf8(cleaned).map_err(FormatPathError::InvalidUtf8)?;
 
-    let path_with_forward_slash = if config.escape_backslashes {
-        path_without_ansi.replace('\\', "/")
+    let path_result = if config.escape_backslashes {
+        path_result.replace('\\', "/")
     } else {
-        path_without_ansi
+        path_result
     };
     let mut result = String::new();
     let mut prev_char = '\0';
 
-    for c in path_with_forward_slash.chars() {
+    for c in path_result.chars() {
         if config.collapse_consecutive_slashes && c == '/' && prev_char == '/' {
             continue;
         }
@@ -182,7 +185,7 @@ fn normalize_path(path: &Path) -> PathBuf {
 /// - strip ANSI escape sequences
 /// - remove unfriendly characters (`*`, `?`, etc.)
 /// - resolve simple `..` segments
-pub fn fmt_path(path: impl Into<PathBuf>) -> Result<PathBuf, FormatPathError> {
+pub fn fmt_path(path: impl Into<PathBuf>) -> Result<PathBuf, PathFormatError> {
     let path_str = fmt_path_str(path.into().display().to_string())?;
     Ok(PathBuf::from(path_str))
 }
@@ -195,38 +198,38 @@ pub fn fmt_path(path: impl Into<PathBuf>) -> Result<PathBuf, FormatPathError> {
 pub fn fmt_path_custom(
     path: impl Into<PathBuf>,
     config: &PathFormatConfig,
-) -> Result<PathBuf, FormatPathError> {
+) -> Result<PathBuf, PathFormatError> {
     let path_str = fmt_path_str_custom(path.into().display().to_string(), config)?;
     Ok(PathBuf::from(path_str))
 }
 
 /// Error type for path formatting operations.
 #[derive(Debug)]
-pub enum FormatPathError {
+pub enum PathFormatError {
     /// The input string contained invalid UTF-8 after stripping ANSI escape sequences.
     InvalidUtf8(std::string::FromUtf8Error),
 }
 
-impl std::fmt::Display for FormatPathError {
+impl std::fmt::Display for PathFormatError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FormatPathError::InvalidUtf8(e) => {
+            PathFormatError::InvalidUtf8(e) => {
                 write!(f, "Invalid UTF-8 after ANSI stripping: {}", e)
             }
         }
     }
 }
 
-impl std::error::Error for FormatPathError {
+impl std::error::Error for PathFormatError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            FormatPathError::InvalidUtf8(e) => Some(e),
+            PathFormatError::InvalidUtf8(e) => Some(e),
         }
     }
 }
 
-impl From<std::string::FromUtf8Error> for FormatPathError {
+impl From<std::string::FromUtf8Error> for PathFormatError {
     fn from(e: std::string::FromUtf8Error) -> Self {
-        FormatPathError::InvalidUtf8(e)
+        PathFormatError::InvalidUtf8(e)
     }
 }

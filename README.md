@@ -13,7 +13,7 @@ Add the dependency to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-just_fmt = "0.1.0"
+just_fmt = "0.1.1"
 ```
 
 ## License
