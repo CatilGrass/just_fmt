@@ -40,7 +40,8 @@ impl Default for PathFormatConfig {
 
 /// Normalize an input path string into a canonical, platform‑agnostic form.
 ///
-/// This function removes ANSI escape sequences, unifies separators to `/`,
+/// This function removes ANSI escape sequences (requires `strip-ansi` feature),
+/// unifies separators to `/`,
 /// collapses duplicate slashes, strips unfriendly characters (`*`, `?`, `"`, `<`, `>`, `|`),
 /// resolves simple `..` components, and preserves a trailing slash when present.
 ///
@@ -80,7 +81,8 @@ pub fn fmt_path_str(path: impl Into<String>) -> Result<String, PathFormatError> 
 
 /// Normalize an input path string into a canonical, platform‑agnostic form.
 ///
-/// This function removes ANSI escape sequences, unifies separators to `/`,
+/// This function removes ANSI escape sequences (requires `strip-ansi` feature),
+/// unifies separators to `/`,
 /// collapses duplicate slashes, strips unfriendly characters (`*`, `?`, `"`, `<`, `>`, `|`),
 /// resolves simple `..` components, and preserves a trailing slash when present.
 ///
