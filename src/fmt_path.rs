@@ -94,7 +94,7 @@ pub fn fmt_path_str_custom(
     config: &PathFormatConfig,
 ) -> Result<String, PathFormatError> {
     let path_result = path.into();
-    let ends_with_slash = path_result.ends_with('/');
+    let ends_with_slash = path_result.ends_with('/') || path_result.ends_with('\\');
 
     // ANSI Strip
     #[cfg(feature = "strip-ansi")]
